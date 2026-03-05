@@ -1,0 +1,17 @@
+# Python 暫存檔
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虛擬環境
+venv/
+env/
+ENV/
+
+# 編輯器設定
+.vscode/
+.idea/
+
+# 作業系統暫存檔
+Thumbs.db
+.DS_Store
