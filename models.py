@@ -1,37 +1,30 @@
 from OpenGL.GL import *
 
-# 顏色定義字典
 COLORS = {
     'PASTEL_RED':   (1.0, 0.8, 0.8),
     'PASTEL_GREEN': (0.8, 1.0, 0.8),
     'PASTEL_BLUE':  (0.8, 0.8, 1.0),
-    'BLACK':        (0.0, 0.0, 0.0),
-    'GUIDE_LINE':   (0.6, 0.6, 0.6)  # 輔助線顏色
+    'BLACK':        (0.0, 0.0, 0.0),    # 外部框線：純黑
+    'INTERNAL_LINE':(0.5, 0.5, 0.5, 0.5), # 內部框線：灰色，50%透明度
+    'GUIDE_LINE':   (0.7, 0.7, 0.7)
 }
 
 class Cube:
     def __init__(self):
-        # 頂點座標
         self.vertices = (
             (1, -1, -1), (1, 1, -1), (-1, 1, -1), (-1, -1, -1),
             (1, -1, 1), (1, 1, 1), (-1, -1, 1), (-1, 1, 1)
         )
-        
-        # 面定義：左右(X), 上下(Y), 前後(Z)
         self.surfaces = (
             (0, 1, 5, 4), (2, 3, 6, 7), # X
             (1, 2, 7, 5), (0, 4, 6, 3), # Y
             (4, 5, 7, 6), (0, 1, 2, 3)  # Z
         )
-
-        # 顏色分配（相對面同色）
         self.face_colors = (
             COLORS['PASTEL_RED'],   COLORS['PASTEL_RED'],
             COLORS['PASTEL_GREEN'], COLORS['PASTEL_GREEN'],
             COLORS['PASTEL_BLUE'],  COLORS['PASTEL_BLUE']
         )
-
-        # 邊線定義
         self.edges = (
             (0,1), (1,2), (2,3), (3,0),
             (4,5), (5,7), (7,6), (6,4),
@@ -39,8 +32,7 @@ class Cube:
         )
 
     def draw(self, alpha=1.0):
-        """繪製立方體表面與邊框"""
-        # 1. 繪製面 (RGBA 模式支援透明度)
+        # 1. 繪製面
         glBegin(GL_QUADS)
         for i, surface in enumerate(self.surfaces):
             r, g, b = self.face_colors[i]
@@ -49,9 +41,15 @@ class Cube:
                 glVertex3fv(self.vertices[vertex_index])
         glEnd()
 
-        # 2. 繪製黑色邊框
-        glLineWidth(2.0)
-        glColor3fv(COLORS['BLACK'])
+    def draw_wireframe(self, color, width=2.0):
+        """通用線框繪製"""
+        glLineWidth(width)
+        # 檢查顏色是否有包含 alpha 通道
+        if len(color) == 4:
+            glColor4fv(color)
+        else:
+            glColor3fv(color)
+            
         glBegin(GL_LINES)
         for edge in self.edges:
             for vertex in edge:
