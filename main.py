@@ -3,6 +3,7 @@ from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from models import Cube, draw_axes, COLORS
+import math
 
 # --- [SETUP] 全域字體與效能設定 ---
 pygame.font.init()
@@ -55,15 +56,40 @@ def is_mouse_on_cube(m_x, m_y, cube, current_scale, margin=50):
 
 # --- [SCENE] 動態視平線 ---
 def draw_horizon(colors_dict): 
+    # 1. 儲存屬性並強制關閉深度測試與燈光，確保線條一定會畫在最上層
+    glPushAttrib(GL_ALL_ATTRIB_BITS)
+    glDisable(GL_DEPTH_TEST)
+    glDisable(GL_LIGHTING)
+    
     glPushMatrix()
-    glLoadIdentity()
-    glBegin(GL_LINES)
+    
+    # 2. 取得 ModelView 矩陣並清除位移量 (Translation)
+    # 只保留旋轉，讓地平線永遠跟隨視角高度
+    modelview = glGetDoublev(GL_MODELVIEW_MATRIX)
+    for i in range(3):
+        modelview[3][i] = 0
+    glLoadMatrixd(modelview)
+    
+    # 3. 設定紅色線條樣式
+    glLineWidth(1.5) 
     glColor3fv(colors_dict['PURE_RED']) 
-    glVertex3f(-100, 0, -50) 
-    glVertex3f(100, 0, -50)
+    
+    glBegin(GL_LINES)
+    size = 10000
+    offsets = [0.1, -0.1]
+    
+    for offset in offsets:
+        # 正交線 
+        glVertex3f(-size, 0, offset); glVertex3f(size, 0, offset)
+        glVertex3f(offset, 0, -size); glVertex3f(offset, 0, size)
+        
+        # 交叉對角線
+        glVertex3f(-size, 0, -size + offset); glVertex3f(size, 0, size + offset)
+        glVertex3f(size, 0, -size + offset); glVertex3f(-size, 0, size + offset)
     glEnd()
     
     glPopMatrix()
+    glPopAttrib()
 
 # --- [MAIN] 主程式 ---
 def main():
@@ -143,25 +169,32 @@ def main():
                 m_x, m_y = event.pos
                 icon_size, margin_ui = 40, 15
                 
-                # UI 判定
+                # 1. UI 選單判定優先
                 if margin_ui <= m_x <= (margin_ui + icon_size) and 0 <= m_y <= (margin_ui + icon_size):
                     if event.button == 1: show_ui_menu = not show_ui_menu
                     continue 
 
-                # 方塊操作判定
-                if is_mouse_on_cube(m_x, m_y, cube, current_scale):
-                    if event.button == 1: rotate_active = True
-                    if event.button == 3: move_active = True
-                    
-                    # 滾輪操作
-                    keys = pygame.key.get_pressed()
-                    if keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]:
-                        if event.button == 4: current_scale *= 1.1
-                        if event.button == 5: current_scale *= 0.9
-                    else:
-                        if event.button == 4: glTranslatef(0, 0, 0.5)
-                        if event.button == 5: glTranslatef(0, 0, -0.5)
-                    current_scale = max(0.1, current_scale)
+                # 2. 判斷滑鼠是否在方塊上
+                on_cube = is_mouse_on_cube(m_x, m_y, cube, current_scale)
+
+                # 3. 旋轉操作：限制必須在方塊範圍內
+                if event.button == 1 and on_cube:
+                    rotate_active = True
+                
+                # 4. 移動操作：全螢幕觸發 
+                if event.button == 3:
+                    move_active = True
+                
+                # 5. 滾輪縮放：全螢幕觸發 
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]:
+                    if event.button == 4: current_scale *= 1.1
+                    if event.button == 5: current_scale *= 0.9
+                else:
+                    if event.button == 4: glTranslatef(0, 0, 0.5)
+                    if event.button == 5: glTranslatef(0, 0, -0.5)
+                
+                current_scale = max(0.1, current_scale)
 
             # --- [INPUT] 停止滑鼠操作 (重置狀態) ---
             if event.type == MOUSEBUTTONUP:
@@ -192,9 +225,10 @@ def main():
         # --- [RENDER] 繪製 3D 場景 (清除緩衝區、繪製方塊與線框) ---
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-        glPushMatrix()
         if show_horizon_line:
             draw_horizon(COLORS)
+
+        glPushMatrix()
         glScalef(current_scale, current_scale, current_scale) 
 
         # --- [OBJECT] 方塊本體渲染 (處理透明度與 Z-Fighting) ---
